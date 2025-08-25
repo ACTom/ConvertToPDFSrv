@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  office-to-pdf:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: office-to-pdf-service
+    ports:
+      - "8000:8000"
+    environment:
+      # API配置
+      - API_KEY=your-secure-api-key-here
+      - PORT=8000
+      - HOST=0.0.0.0
+      
+      # 文件存储配置
+      - UPLOAD_DIR=uploads
+      - OUTPUT_DIR=outputs
+      
+      # 清理配置
+      - ENABLE_CLEANUP=true
+      - CLEANUP_INTERVAL_MINUTES=30
+      - FILE_EXPIRE_HOURS=24
+      
+      # LibreOffice配置
+      - SOFFICE_PATH=soffice
+      - CONVERSION_TIMEOUT=300
+      
+      # 日志配置
+      - LOG_LEVEL=INFO
+    volumes:
+      # 持久化存储上传和输出文件
+      - ./data/uploads:/app/uploads
+      - ./data/outputs:/app/outputs
+      # 可选：挂载配置文件
+      # - ./config:/app/config:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    # 网络配置
+    networks:
+      - office-pdf-network
+
+networks:
+  office-pdf-network:
+    driver: bridge
+
+volumes:
+  uploads:
+  outputs:
