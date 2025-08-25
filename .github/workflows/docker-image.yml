@@ -1,0 +1,50 @@
+name: Build and Push Multi-Arch Docker Image
+
+on:
+  push:
+    branches: [ "master" ]  # 监听所有分支的push事件
+    tags: [ "v*" ]    # 监听以v开头的tag，例如v1.0.0
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史以确保tag信息
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Determine Docker tags
+        id: docker_tags
+        run: |
+          # 总是包含commit SHA作为标签
+          echo "TAGS=actom/convert-to-pdf-srv:${{ github.sha }}" >> $GITHUB_OUTPUT
+          # 如果是tag推送，添加tag对应的标签
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "TAGS=actom/convert-to-pdf-srv:${{ github.ref_name }},actom/convert-to-pdf-srv:${{ github.sha }},actom/convert-to-pdf-srv:latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.docker_tags.outputs.TAGS }}
